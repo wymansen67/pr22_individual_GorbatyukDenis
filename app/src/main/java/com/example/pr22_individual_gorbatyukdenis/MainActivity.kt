@@ -18,7 +18,7 @@ import org.w3c.dom.Text
 class MainActivity : AppCompatActivity() {
 
     lateinit var bindingClass: ActivityMainBinding
-    lateinit var TextView: MaterialTextView
+    lateinit var BookInf: MaterialTextView
     lateinit var BookISBN: TextInputEditText
     lateinit var GetInfoBTN: MaterialButton
 
@@ -26,13 +26,14 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         bindingClass = ActivityMainBinding.inflate(layoutInflater)
         setContentView(bindingClass.root)
-        TextView = bindingClass.bookInfo
+        BookInf = bindingClass.bookInfo
         BookISBN = bindingClass.bookISBN
         GetInfoBTN = bindingClass.getBookInfoButton
         GetInfoBTN.setOnClickListener() { GetBook(BookISBN.text.toString()) }
     }
 
     fun GetBook(ISBN: String) {
+        //var url = "https://openlibrary.org/api/books?bibkeys=ISBN:" + ISBN + "&jscmd=data&format=json"
         var url = "https://openlibrary.org/isbn/" + ISBN + ".json"
         if (!ISBN.isNullOrEmpty()) {
             var validRes = ValidateISBN(ISBN)
@@ -40,13 +41,41 @@ class MainActivity : AppCompatActivity() {
             else {
                 val queue = Volley.newRequestQueue(this)
                 val stringRequest = StringRequest(
-                    Request.Method.GET,url,{
+                    Request.Method.GET,
+                    url,
+                    {
                             response->
                         val jsonObject = JSONObject(response)
-                    },{
+                        val title = jsonObject.getString("title").toString()
+                        var publisher = jsonObject.getString("publishers")
+                        publisher = publisher.replace("\"", "")
+                        publisher = publisher.replace("[", "")
+                        publisher = publisher.replace("]", "")
+                        val publish_date = jsonObject.getString("publish_date")
+                        var author = jsonObject.getString("authors")
+                        author = author.subSequence(10,(author.length - 3)).toString()
+                        author = author.replace("\\", "")
+                        var url_author = "https://openlibrary.org" + author + ".json"
+                        val queue1 = Volley.newRequestQueue(this)
+                        val stringRequest1 = StringRequest(
+                            Request.Method.GET,
+                            url_author,
+                            {
+                                    response->
+                                val jsonObject1 = JSONObject(response)
+                                val name = jsonObject1.getString("personal_name")
+                                BookInf.text = "Title: $title\nAuthor: $name\nPublish date: $publish_date\nPublisher: $publisher"
+
+                            }, {
+                                Log.d("MyLog","Volley error: $it")
+                            }
+                        )
+                        queue1.add(stringRequest1)
+                    }, {
                         Log.d("MyLog","Volley error: $it")
                     }
-                )
+                 )
+            queue.add(stringRequest)
             }
         }
     }
@@ -58,8 +87,6 @@ class MainActivity : AppCompatActivity() {
             if (err > 0) return "ISBN should contain only digits"
             else return "0"
         }
-        else {
-            return "Invalid ISBN length"
-        }
+        else return "Invalid ISBN length"
     }
 }
